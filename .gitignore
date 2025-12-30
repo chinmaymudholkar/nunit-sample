@@ -1,0 +1,8 @@
+.env
+bin/
+obj/
+playwright-report/
+test-results/
+.idea/
+*.user
+.vscode
