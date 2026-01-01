@@ -27,10 +27,50 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
+    # Restore and build to get Playwright tooling
+    - name: Restore and build
+      run: dotnet build
+
+    # Install Playwright browsers
+    - name: Install Playwright dependencies
+      run: |
+        # Find the playwright.ps1 script in the build output directory
+        # It could be in net8.0, net10.0 (if project incorrectly targets it), or other locations
+        $possiblePaths = @(
+          "bin\Debug\net8.0\playwright.ps1",
+          "bin\Debug\net10.0\playwright.ps1",
+          "bin\Release\net8.0\playwright.ps1",
+          "bin\Release\net10.0\playwright.ps1"
+        )
+        
+        $playwrightScript = $null
+        foreach ($path in $possiblePaths) {
+          if (Test-Path $path) {
+            $playwrightScript = $path
+            Write-Host "Found Playwright script at: $playwrightScript"
+            break
+          }
+        }
+        
+        if (-not $playwrightScript) {
+          Write-Host "Playwright script not found in expected locations, searching recursively..."
+          $foundScript = Get-ChildItem -Path . -Filter "playwright.ps1" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($foundScript) {
+            $playwrightScript = $foundScript.FullName
+            Write-Host "Found Playwright script at: $playwrightScript"
+          }
+        }
+        
+        if ($playwrightScript) {
+          Write-Host "Installing Playwright browsers using script: $playwrightScript"
+          pwsh $playwrightScript install --with-deps
+        } else {
+          Write-Host "Warning: Could not find playwright.ps1 script. Browsers may not be installed."
+        }
+
     # Execute all tests in the solution
     - name: Execute tests
       run: dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
-      continue-on-error: true
 
     # Install Allure commandline
     - name: Install Allure CLI
@@ -63,7 +103,9 @@ jobs:
         
         # Search for allure-results in common locations
         $possiblePaths = @(
+          "bin\Debug\net8.0\allure-results",
           "bin\Debug\net10.0\allure-results",
+          "bin\Release\net8.0\allure-results",
           "bin\Release\net10.0\allure-results",
           "TestResults\allure-results",
           "allure-results"
