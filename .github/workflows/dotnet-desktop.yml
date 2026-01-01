@@ -182,10 +182,21 @@ jobs:
       run: |
         # Create site root with gh-pages subdirectory
         mkdir -p site/gh-pages
-        cp -r allure-report/* site/gh-pages/ || true
-        if [ ! -f "site/gh-pages/index.html" ]; then
+        # Copy all files from allure-report to gh-pages subdirectory
+        if [ -d "allure-report" ] && [ "$(ls -A allure-report)" ]; then
+          cp -r allure-report/. site/gh-pages/
+          echo "Copied Allure report files to site/gh-pages/"
+          ls -la site/gh-pages/ | head -10
+        else
           echo "No Allure report found, creating placeholder"
           echo "<!DOCTYPE html><html><head><title>Allure Report</title></head><body><h1>No test results available</h1></body></html>" > site/gh-pages/index.html
+        fi
+        # Verify index.html exists
+        if [ ! -f "site/gh-pages/index.html" ]; then
+          echo "Warning: index.html not found after copy operation"
+          ls -la site/gh-pages/ || echo "gh-pages directory is empty"
+        else
+          echo "Successfully prepared gh-pages directory with index.html"
         fi
 
     # Deploy to GitHub Pages
@@ -208,7 +219,7 @@ jobs:
         REPO_OWNER="${REPO%%/*}"
         REPO_NAME="${REPO#*/}"
         # Always construct URL with gh-pages subdirectory
-        PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
+        PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/gh-pages/"
         {
           echo "## Allure Report Published"
           echo ""
