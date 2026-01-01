@@ -71,6 +71,15 @@ jobs:
     # Execute all tests in the solution
     - name: Execute tests
       run: dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
+      env:
+        # Variables from GitHub repository variables
+        BASE_URL: ${{ vars.BASE_URL }}
+        SWAG_LABS_USERNAME: ${{ vars.SWAG_LABS_USERNAME }}
+        BROWSER: ${{ vars.BROWSER }}
+        HEADLESS: ${{ vars.HEADLESS }}
+        SLOW_MO: ${{ vars.SLOW_MO }}
+        # Secret from GitHub secrets (password)
+        SWAG_LABS_PASSWORD: ${{ secrets.SWAG_LABS_PASSWORD }}
 
     # Install Allure commandline
     - name: Install Allure CLI
