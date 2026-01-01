@@ -177,6 +177,17 @@ jobs:
         name: allure-report
         path: allure-report
 
+    # Prepare artifact for gh-pages subdirectory
+    - name: Prepare gh-pages directory
+      run: |
+        # Create site root with gh-pages subdirectory
+        mkdir -p site/gh-pages
+        cp -r allure-report/* site/gh-pages/ || true
+        if [ ! -f "site/gh-pages/index.html" ]; then
+          echo "No Allure report found, creating placeholder"
+          echo "<!DOCTYPE html><html><head><title>Allure Report</title></head><body><h1>No test results available</h1></body></html>" > site/gh-pages/index.html
+        fi
+
     # Deploy to GitHub Pages
     - name: Setup Pages
       uses: actions/configure-pages@v5
@@ -184,7 +195,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: allure-report
+        path: site
 
     - name: Deploy to GitHub Pages
       id: deployment
@@ -193,13 +204,11 @@ jobs:
     # Output GitHub Pages URL
     - name: Display GitHub Pages URL
       run: |
-        PAGES_URL="${{ steps.deployment.outputs.page_url }}"
-        if [ -z "$PAGES_URL" ]; then
-          REPO="${{ github.repository }}"
-          REPO_OWNER="${REPO%%/*}"
-          REPO_NAME="${REPO#*/}"
-          PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
-        fi
+        REPO="${{ github.repository }}"
+        REPO_OWNER="${REPO%%/*}"
+        REPO_NAME="${REPO#*/}"
+        # Always construct URL with gh-pages subdirectory
+        PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
         {
           echo "## Allure Report Published"
           echo ""
