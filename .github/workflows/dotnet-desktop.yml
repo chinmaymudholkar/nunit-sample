@@ -58,12 +58,12 @@ jobs:
           # Create empty report directory with a simple HTML file
           New-Item -ItemType Directory -Force -Path allure-report | Out-Null
           @"
-          <!DOCTYPE html>
-          <html>
-          <head><title>Allure Report</title></head>
-          <body><h1>No test results available</h1></body>
-          </html>
-          "@ | Out-File -FilePath allure-report\index.html -Encoding utf8
+<!DOCTYPE html>
+<html>
+<head><title>Allure Report</title></head>
+<body><h1>No test results available</h1></body>
+</html>
+"@ | Out-File -FilePath allure-report\index.html -Encoding utf8
         }
 
     # Upload Allure report as artifact
