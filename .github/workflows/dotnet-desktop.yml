@@ -27,18 +27,6 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    # Set environment variables with defaults
-    - name: Configure environment variables
-      run: |
-        # Set variables from GitHub repository variables
-        $baseUrl = "${{ vars.BASE_URL }}"
-        $username = "${{ vars.SWAG_LABS_USERNAME }}"
-        $browser = "${{ vars.BROWSER }}"
-        $headless = "${{ vars.HEADLESS }}"
-        $slowMo = "${{ vars.SLOW_MO }}"
-        $password = "${{ secrets.SWAG_LABS_PASSWORD }}"
-        
-              
     # Execute all tests in the solution
     - name: Execute tests
       run: dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
@@ -62,21 +50,49 @@ jobs:
     # Generate Allure report
     - name: Generate Allure report
       run: |
-        $allureResultsPath = "bin\Debug\net10.0\allure-results"
-        if (Test-Path $allureResultsPath) {
-          allure generate $allureResultsPath --clean -o allure-report
+        # Find Allure CLI
+        $allureDir = "$env:TEMP\allure"
+        $allureBin = Get-ChildItem -Path $allureDir -Filter "allure.bat" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $allureBin) {
+          Write-Host "Allure CLI not found, attempting to use from PATH"
+          $allureCmd = "allure"
         } else {
-          Write-Host "No Allure results found at $allureResultsPath"
-          # Create empty report directory with a simple HTML file
+          $allureCmd = $allureBin.FullName
+          Write-Host "Using Allure CLI from: $allureCmd"
+        }
+        
+        # Search for allure-results in common locations
+        $possiblePaths = @(
+          "bin\Debug\net10.0\allure-results",
+          "bin\Release\net10.0\allure-results",
+          "TestResults\allure-results",
+          "allure-results"
+        )
+        
+        $allureResultsPath = $null
+        foreach ($path in $possiblePaths) {
+          if (Test-Path $path) {
+            $allureResultsPath = $path
+            Write-Host "Found Allure results at: $allureResultsPath"
+            break
+          }
+        }
+        
+        if ($allureResultsPath) {
+          # Generate Allure report
+          Write-Host "Generating Allure report from $allureResultsPath"
+          & $allureCmd generate $allureResultsPath --clean -o allure-report
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Allure report generation failed with exit code: $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "Allure report generated successfully"
+        } else {
+          Write-Host "No Allure results found in any of the expected locations"
+          Write-Host "Searched paths: $($possiblePaths -join ', ')"
+          Write-Host "Skipping Allure report generation - no results to publish"
+          # Create empty directory so the upload step doesn't fail
           New-Item -ItemType Directory -Force -Path allure-report | Out-Null
-          $htmlContent = @'
-<!DOCTYPE html>
-<html>
-<head><title>Allure Report</title></head>
-<body><h1>No test results available</h1></body>
-</html>
-'@
-          $htmlContent | Out-File -FilePath allure-report\index.html -Encoding utf8
         }
 
     # Upload Allure report as artifact
@@ -134,9 +150,9 @@ jobs:
           PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
         fi
         {
-          echo "## 🎉 Allure Report Published"
+          echo "## Allure Report Published"
           echo ""
-          echo "📊 **View your Allure test report at:**"
+          echo "**View your Allure test report at:**"
           echo "[${PAGES_URL}](${PAGES_URL})"
           echo ""
           echo "The report will be available in a few minutes."
