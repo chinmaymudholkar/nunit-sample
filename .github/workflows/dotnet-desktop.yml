@@ -27,6 +27,18 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
+    # Set environment variables with defaults
+    - name: Configure environment variables
+      run: |
+        # Set variables from GitHub repository variables
+        $baseUrl = "${{ vars.BASE_URL }}"
+        $username = "${{ vars.SWAG_LABS_USERNAME }}"
+        $browser = "${{ vars.BROWSER }}"
+        $headless = "${{ vars.HEADLESS }}"
+        $slowMo = "${{ vars.SLOW_MO }}"
+        $password = "${{ secrets.SWAG_LABS_PASSWORD }}"
+        
+              
     # Execute all tests in the solution
     - name: Execute tests
       run: dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
@@ -57,13 +69,14 @@ jobs:
           Write-Host "No Allure results found at $allureResultsPath"
           # Create empty report directory with a simple HTML file
           New-Item -ItemType Directory -Force -Path allure-report | Out-Null
-          @"
+          $htmlContent = @'
 <!DOCTYPE html>
 <html>
 <head><title>Allure Report</title></head>
 <body><h1>No test results available</h1></body>
 </html>
-"@ | Out-File -FilePath allure-report\index.html -Encoding utf8
+'@
+          $htmlContent | Out-File -FilePath allure-report\index.html -Encoding utf8
         }
 
     # Upload Allure report as artifact
