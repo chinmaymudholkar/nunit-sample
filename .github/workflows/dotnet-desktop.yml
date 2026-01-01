@@ -1,0 +1,132 @@
+name: .NET Test Suite
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    # Run every Monday at 2:00 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+
+  test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # Execute all tests in the solution
+    - name: Execute tests
+      run: dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
+      continue-on-error: true
+
+    # Install Allure commandline
+    - name: Install Allure CLI
+      run: |
+        $allureVersion = "2.24.1"
+        $allureUrl = "https://github.com/allure-framework/allure2/releases/download/$allureVersion/allure-$allureVersion.zip"
+        $allureZip = "$env:TEMP\allure.zip"
+        $allureDir = "$env:TEMP\allure"
+        Invoke-WebRequest -Uri $allureUrl -OutFile $allureZip
+        Expand-Archive -Path $allureZip -DestinationPath $allureDir -Force
+        $allureBin = Get-ChildItem -Path $allureDir -Filter "allure.bat" -Recurse | Select-Object -First 1
+        if ($allureBin) {
+          $env:PATH = "$($allureBin.DirectoryName);$env:PATH"
+          echo "$($allureBin.DirectoryName)" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+        }
+
+    # Generate Allure report
+    - name: Generate Allure report
+      run: |
+        $allureResultsPath = "bin\Debug\net10.0\allure-results"
+        if (Test-Path $allureResultsPath) {
+          allure generate $allureResultsPath --clean -o allure-report
+        } else {
+          Write-Host "No Allure results found at $allureResultsPath"
+          # Create empty report directory with a simple HTML file
+          New-Item -ItemType Directory -Force -Path allure-report | Out-Null
+          @"
+          <!DOCTYPE html>
+          <html>
+          <head><title>Allure Report</title></head>
+          <body><h1>No test results available</h1></body>
+          </html>
+          "@ | Out-File -FilePath allure-report\index.html -Encoding utf8
+        }
+
+    # Upload Allure report as artifact
+    - name: Upload Allure report
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-report
+        path: allure-report
+        retention-days: 30
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Download Allure report artifact
+    - name: Download Allure report
+      uses: actions/download-artifact@v4
+      with:
+        name: allure-report
+        path: allure-report
+
+    # Deploy to GitHub Pages
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: allure-report
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    # Output GitHub Pages URL
+    - name: Display GitHub Pages URL
+      run: |
+        PAGES_URL="${{ steps.deployment.outputs.page_url }}"
+        if [ -z "$PAGES_URL" ]; then
+          REPO="${{ github.repository }}"
+          REPO_OWNER="${REPO%%/*}"
+          REPO_NAME="${REPO#*/}"
+          PAGES_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
+        fi
+        {
+          echo "## 🎉 Allure Report Published"
+          echo ""
+          echo "📊 **View your Allure test report at:**"
+          echo "[${PAGES_URL}](${PAGES_URL})"
+          echo ""
+          echo "The report will be available in a few minutes."
+          echo ""
+          echo "**Direct link:** ${PAGES_URL}"
+        } >> $GITHUB_STEP_SUMMARY
