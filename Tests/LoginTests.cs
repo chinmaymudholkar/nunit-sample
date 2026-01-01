@@ -52,4 +52,12 @@ public class LoginTests : BaseTest
         var errorMessage = await _loginPage.GetErrorMessageAsync();
         errorMessage.Should().Be(expectedError);
     }
+
+    [TestCase]
+    public async Task Login_ValidCredentials_ShouldFailDueToInventoryUrl()
+    {
+        await _loginPage.LoginAsync(TestConfig.Username, TestConfig.Password);
+        var url = _loginPage.GetUrl();
+        url.Should().Contain("inventory1.html");
+    }
 }

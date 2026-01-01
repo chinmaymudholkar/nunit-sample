@@ -97,6 +97,8 @@ npx -y allure-commandline serve bin/Debug/net10.0/allure-results
 - **Screenshots**: Automatically captures and attaches screenshots to the report when a test fails.
 - **History**: Keeps track of test execution history (if report is generated).
 
+Reports are also published to this repo's [Github Actions](https://chinmaymudholkar.github.io/nunit-sample/gh-pages/):
+
 
 ## Project Structure
 
